@@ -21,7 +21,6 @@ stress_summary.py     # Stres sonuçlarını özetler
 results/              # CSV sonuçları
 figures/              # Ana deney grafikleri
 figures_stress/       # Stres deney grafikleri
-report/               # Rapor ve sunum
 ```
 
 ## Gereksinimler
