@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANET Protokol Analizi — 502531022 İrem İÇÖZ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --aodv: #E74C3C; --aodv-light: #FADBD8;
+    --olsr: #2980B9; --olsr-light: #D6EAF8;
+    --ok:   #27AE60; --warn: #E67E22; --fail: #C0392B;
+    --bg:   #0F1117; --surface: #1A1D27; --surface2: #22263A;
+    --border: rgba(255,255,255,0.08);
+    --text: #F0F2F8; --muted: #8892A4;
+    --font-mono: 'Space Mono', monospace;
+    --font: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    padding: 20px 32px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, #0F1117 0%, #1a1030 100%);
+  }
+  .title-block h1 { font-size: 18px; font-weight: 600; letter-spacing: -.3px; }
+  .title-block p  { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
+  .tabs { display: flex; gap: 4px; }
+  .tab {
+    padding: 7px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-family: var(--font);
+    font-size: 13px; cursor: pointer; transition: all .2s;
+  }
+  .tab.active { background: var(--surface2); color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* ── Layout ── */
+  .page { display: none; padding: 20px 32px; }
+  .page.active { display: block; }
+
+  /* ── Controls row ── */
+  .ctrl-bar {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 12px 16px; background: var(--surface); border-radius: 12px;
+    border: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .proto-btn {
+    padding: 6px 20px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); font-family: var(--font);
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s;
+  }
+  .proto-btn.a { background: var(--aodv); color: #fff; border-color: var(--aodv); }
+  .proto-btn.o { background: var(--olsr); color: #fff; border-color: var(--olsr); }
+  label { font-size: 12px; color: var(--muted); }
+  input[type=range] { accent-color: #6C63FF; }
+  .val-badge {
+    font-family: var(--font-mono); font-size: 11px; padding: 3px 8px;
+    background: var(--surface2); border-radius: 6px; color: var(--text);
+  }
+
+  /* ── Canvas ── */
+  .canvas-wrap {
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border); position: relative;
+    background: var(--surface);
+  }
+  canvas { display: block; width: 100%; }
+
+  /* ── Metrics ── */
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 12px; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .metric-value { font-size: 24px; font-weight: 600; margin-top: 4px; font-family: var(--font-mono); transition: color .3s; }
+  .metric-value.ok   { color: var(--ok); }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.bad  { color: var(--fail); }
+
+  /* ── Banner ── */
+  .banner {
+    border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 500;
+    text-align: center; margin-top: 12px; transition: all .3s;
+    border: 1px solid transparent;
+  }
+  .banner.ok   { background: rgba(39,174,96,.15);  border-color: rgba(39,174,96,.3);  color: #2ECC71; }
+  .banner.warn { background: rgba(230,126,34,.15); border-color: rgba(230,126,34,.3); color: #E67E22; }
+  .banner.bad  { background: rgba(192,57,43,.15);  border-color: rgba(192,57,43,.3);  color: #E74C3C; }
+
+  /* ── Protocol display (demo2) ── */
+  .proto-display {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 20px; margin-bottom: 14px;
+    transition: border-color .4s;
+  }
+  .proto-display.a { border-color: rgba(231,76,60,.4); }
+  .proto-display.o { border-color: rgba(41,128,185,.4); }
+  .proto-name { font-size: 26px; font-weight: 700; font-family: var(--font-mono); }
+  .proto-name.a { color: var(--aodv); }
+  .proto-name.o { color: var(--olsr); }
+  .proto-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .switch-log {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-family: var(--font-mono);
+    font-size: 11px; color: var(--muted); max-height: 72px; overflow-y: auto;
+    margin-top: 10px;
+  }
+  .switch-log span { color: #6C63FF; }
+
+  /* ── Data panel ── */
+  .data-notice {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; font-size: 12px; color: var(--muted);
+    margin-bottom: 14px; line-height: 1.6;
+  }
+  .data-notice b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>MANET Protokol Performans Analizi</h1>
+    <p>502531022 · İrem İÇÖZ · Telsiz Ağ Protokolleri</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('demo1')">Ad-Hoc Ağ Simülasyonu</button>
+    <button class="tab" onclick="showTab('demo2')">Adaptif Protokol Seçimi</button>
+  </div>
+</header>
+
+<!-- ═══ DEMO 1: 6-node MANET ═══ -->
+<div class="page active" id="demo1">
+  <div class="data-notice">
+    <b>Simülasyon hakkında:</b> Bu demo AODV ve OLSR protokollerinin
+    farklı mobilite hızı ve RSSI koşullarında nasıl davrandığını gösterir.
+    Metrikleri değiştirerek <b>kırılma noktasını (breaking point)</b> gözlemleyebilirsiniz.
+    Sağ altta gerçek simülasyon veriniz varsa CSV yükleyebilirsiniz.
+  </div>
+
+  <div class="ctrl-bar">
+    <button class="proto-btn a" id="btn-a1" onclick="d1.setProto('aodv')">AODV (Reaktif)</button>
+    <button class="proto-btn" id="btn-o1" onclick="d1.setProto('olsr')">OLSR (Proaktif)</button>
+    <span style="margin-left:8px;color:var(--muted);font-size:12px">Hız:</span>
+    <input type="range" id="d1spd" min="1" max="10" value="3" oninput="d1.updateParams()">
+    <span class="val-badge" id="d1spd-v">3 m/s</span>
+    <span style="color:var(--muted);font-size:12px">RSSI:</span>
+    <input type="range" id="d1rssi" min="1" max="3" value="3" oninput="d1.updateParams()">
+    <span class="val-badge" id="d1rssi-v">Güçlü</span>
+    <button class="proto-btn" style="margin-left:auto" onclick="d1.reset()">↺</button>
+  </div>
+
+  <div class="canvas-wrap"><canvas id="c1" height="300"></canvas></div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">PDR</div><div class="metric-value ok" id="d1-pdr">—</div></div>
+    <div class="metric"><div class="metric-label">Gecikme</div><div class="metric-value" id="d1-dly">—</div></div>
+    <div class="metric"><div class="metric-label">Throughput</div><div class="metric-value" id="d1-tp">—</div></div>
+    <div class="metric"><div class="metric-label">Overhead</div><div class="metric-value" id="d1-oh">—</div></div>
+  </div>
+  <div class="banner ok" id="d1-banner">Ağ operasyonel</div>
+</div>
+
+<!-- ═══ DEMO 2: Vehicle adaptive ═══ -->
+<div class="page" id="demo2">
+  <div class="proto-display o" id="pd2">
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Aktif Protokol</div>
+      <div class="proto-name o" id="pname2">OLSR</div>
+      <div class="proto-desc" id="preason2">Düşük hız · güçlü sinyal → OLSR optimal</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:var(--muted)">Otomatik geçiş sayısı</div>
+      <div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:#6C63FF" id="switch-cnt">0</div>
+    </div>
+  </div>
+
+  <div class="ctrl-bar">
+    <span style="color:var(--muted);font-size:12px">Araç hızı:</span>
+    <input type="range" id="vspd" min="1" max="10" value="3" oninput="d2.updateParams()">
+    <span class="val-badge" id="vspd-v">3 m/s</span>
+    <span style="color:var(--muted);font-size:12px">Sinyal:</span>
+    <input type="range" id="vsig" min="1" max="3" value="3" oninput="d2.updateParams()">
+    <span class="val-badge" id="vsig-v">Güçlü</span>
+    <button class="proto-btn" style="margin-left:auto" onclick="d2.togglePause()" id="pause-btn">⏸ Duraklat</button>
+    <button class="proto-btn" onclick="d2.reset()">↺ Sıfırla</button>
+  </div>
+
+  <div class="canvas-wrap"><canvas id="c2" height="300"></canvas></div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">PDR</div><div class="metric-value ok" id="d2-pdr">—</div></div>
+    <div class="metric"><div class="metric-label">Gecikme</div><div class="metric-value" id="d2-dly">—</div></div>
+    <div class="metric"><div class="metric-label">Hız</div><div class="metric-value" id="d2-spd">—</div></div>
+    <div class="metric"><div class="metric-label">RSSI</div><div class="metric-value" id="d2-rssi">—</div></div>
+  </div>
+
+  <div class="switch-log" id="sw-log">— Araç yola çıktı, OLSR aktif...</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// GERÇEK VERİ TABLOSU
+// Simülasyon çalıştıktan sonra raw_data.csv'den
+// üretilen ortalama değerler buraya girilir.
+// Şu an: literatür bazlı değerler (mock)
+// ═══════════════════════════════════════════════
+const REAL_DATA = {
+  aodv: {
+    pdr:   [[94.3,89.3,82.2],[87.7,82.8,68.7],[76.9,64.5,47.9]],
+    delay: [[8,10,20],[15,20,47],[26,47,93]],
+    tp:    [[1.75,1.60,1.22],[1.55,1.35,0.79],[1.11,0.82,0.38]],
+    oh:    [[13,15,16],[28,31,47],[53,70,96]]
+  },
+  olsr: {
+    pdr:   [[91.9,86.4,79.9],[86.4,78.7,60.3],[73.7,60.0,39.2]],
+    delay: [[6,8,16],[13,18,50],[21,57,121]],
+    tp:    [[1.80,1.65,1.38],[1.47,1.35,0.72],[1.04,0.67,0.21]],
+    oh:    [[84,99,95],[118,129,150],[161,180,218]]
+  }
+};
+
+function getRD(proto, metric, speed, rssi) {
+  const si = speed <= 1 ? 0 : speed <= 5 ? 1 : 2;
+  const ri = rssi === 3 ? 0 : rssi === 2 ? 1 : 2;
+  const base = REAL_DATA[proto][metric][si][ri];
+  return base + (Math.random() - 0.5) * base * 0.04;
+}
+
+// ═══════════════════════════════════════════════
+// DEMO 1 — 6 Düğüm MANET
+// ═══════════════════════════════════════════════
+const d1 = (() => {
+  const cv = document.getElementById('c1');
+  const cx = cv.getContext('2d');
+  const N = 6;
+  let W, H, proto = 'aodv', speedVal = 3, rssiLevel = 3;
+  let nodes = [], pkt = [], frame;
+  const RSSI_RANGE = [0, 0.40, 0.58, 0.80];
+  const RSSI_NAMES = ['', 'Zayıf', 'Orta', 'Güçlü'];
+  let metrics = { pdr: 94, delay: 8, tp: 1.75, oh: 13 };
+  let lastMetric = 0, lastSpawn = 0;
+
+  function resize() {
+    const rect = cv.parentElement.getBoundingClientRect();
+    W = rect.width; H = 300;
+    cv.width = W; cv.height = H;
+  }
+
+  function initNodes() {
+    nodes = Array.from({ length: N }, (_, i) => {
+      const cols = 3, rows = 2;
+      const gx = (i % cols + 1) / (cols + 1);
+      const gy = (Math.floor(i / cols) + 1) / (rows + 1);
+      return { x: gx * W, y: gy * H, tx: Math.random() * W * .8 + W * .1, ty: Math.random() * H * .8 + H * .1, pause: 0 };
+    });
+  }
+
+  function lq(a, b) {
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    const maxR = RSSI_RANGE[rssiLevel] * Math.min(W, H);
+    return Math.max(0, 1 - d / maxR);
+  }
+
+  function move(dt) {
+    const sp = speedVal * 18;
+    nodes.forEach(n => {
+      if (n.pause > 0) { n.pause -= dt; return; }
+      const dx = n.tx - n.x, dy = n.ty - n.y, d = Math.hypot(dx, dy);
+      if (d < 5) { n.tx = Math.random() * W * .8 + W * .1; n.ty = Math.random() * H * .8 + H * .1; n.pause = 700 + Math.random() * 1200; return; }
+      n.x += dx / d * sp * dt / 1000; n.y += dy / d * sp * dt / 1000;
+      n.x = Math.max(20, Math.min(W - 20, n.x));
+      n.y = Math.max(20, Math.min(H - 20, n.y));
+    });
+  }
+
+  function draw() {
+    cx.clearRect(0, 0, W, H);
+    const maxR = RSSI_RANGE[rssiLevel] * Math.min(W, H);
+    nodes.forEach(n => {
+      cx.beginPath(); cx.arc(n.x, n.y, maxR, 0, Math.PI * 2);
+      cx.strokeStyle = 'rgba(255,255,255,0.04)'; cx.lineWidth = 1; cx.stroke();
+    });
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const q = lq(nodes[i], nodes[j]);
+      if (q <= 0) continue;
+      const col = q > .6 ? '#27AE60' : q > .3 ? '#E67E22' : '#E74C3C';
+      cx.beginPath(); cx.moveTo(nodes[i].x, nodes[i].y); cx.lineTo(nodes[j].x, nodes[j].y);
+      cx.strokeStyle = col + Math.round(q * 180).toString(16).padStart(2, '0');
+      cx.lineWidth = q * 2.5; cx.stroke();
+    }
+    nodes.forEach((n, i) => {
+      const isSrc = i === N - 1, isDst = i === 0;
+      const r = isSrc || isDst ? 13 : 10;
+      cx.beginPath(); cx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      cx.fillStyle = isSrc ? '#3498DB' : isDst ? '#9B59B6' : '#4A5568';
+      cx.fill(); cx.strokeStyle = '#fff'; cx.lineWidth = 1.5; cx.stroke();
+      cx.fillStyle = '#fff'; cx.font = 'bold 9px Space Mono, monospace';
+      cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText(`s${i + 1}`, n.x, n.y);
+    });
+    pkt = pkt.filter(p => {
+      p.prog += p.spd;
+      if (p.prog >= 1) { return false; }
+      const px = p.x + (p.tx - p.x) * p.prog, py = p.y + (p.ty - p.y) * p.prog;
+      cx.beginPath(); cx.arc(px, py, p.drop ? 3 : 4.5, 0, Math.PI * 2);
+      cx.fillStyle = p.drop ? '#E74C3C' : '#F1C40F'; cx.fill();
+      return true;
+    });
+    const pdrPct = metrics.pdr;
+    cx.fillStyle = pdrPct >= 80 ? '#27AE60' : pdrPct >= 70 ? '#E67E22' : '#E74C3C';
+    cx.font = 'bold 12px Space Mono, monospace'; cx.textAlign = 'right';
+    cx.fillText(`PDR ${pdrPct.toFixed(0)}%`, W - 12, H - 10);
+    if (pdrPct < 70) {
+      cx.fillStyle = '#E74C3C'; cx.textAlign = 'center'; cx.font = 'bold 13px DM Sans, sans-serif';
+      cx.fillText('⚠ BREAKING POINT', W / 2, H - 10);
+    }
+  }
+
+  function spawnPkt(ts) {
+    if (ts - lastSpawn < Math.max(150, 500 - speedVal * 35)) return;
+    lastSpawn = ts;
+    const drop = Math.random() > metrics.pdr / 100;
+    const src = nodes[N - 1], dst = nodes[0];
+    pkt.push({ x: src.x, y: src.y, tx: dst.x, ty: dst.y, prog: 0, spd: .018 + Math.random() * .01, drop });
+  }
+
+  let _last = 0;
+  function loop(ts) {
+    const dt = Math.min(ts - _last, 50); _last = ts;
+    move(dt); spawnPkt(ts);
+    if (ts - lastMetric > 1200) {
+      lastMetric = ts;
+      metrics = { pdr: getRD(proto, 'pdr', speedVal, rssiLevel), delay: getRD(proto, 'delay', speedVal, rssiLevel), tp: getRD(proto, 'tp', speedVal, rssiLevel), oh: getRD(proto, 'oh', speedVal, rssiLevel) };
+      const pEl = document.getElementById('d1-pdr');
+      pEl.textContent = metrics.pdr.toFixed(1) + '%';
+      pEl.className = 'metric-value ' + (metrics.pdr >= 80 ? 'ok' : metrics.pdr >= 70 ? 'warn' : 'bad');
+      document.getElementById('d1-dly').textContent = metrics.delay.toFixed(0) + ' ms';
+      document.getElementById('d1-tp').textContent  = metrics.tp.toFixed(2) + ' Mbps';
+      document.getElementById('d1-oh').textContent  = Math.round(metrics.oh) + ' pkt';
+      const ban = document.getElementById('d1-banner');
+      if (metrics.pdr >= 80) { ban.className = 'banner ok'; ban.textContent = '✓ Ağ operasyonel — PDR > %80'; }
+      else if (metrics.pdr >= 70) { ban.className = 'banner warn'; ban.textContent = '⚠ PDR kritik eşiğe yaklaşıyor — kırılma noktası yakın'; }
+      else { ban.className = 'banner bad'; ban.textContent = `✕ BREAKING POINT! PDR < %70 — ${proto.toUpperCase()} bu koşulda çöktü`; }
+    }
+    draw();
+    frame = requestAnimationFrame(loop);
+  }
+
+  return {
+    init() { resize(); initNodes(); frame = requestAnimationFrame(loop); window.addEventListener('resize', () => { resize(); }); },
+    setProto(p) {
+      proto = p;
+      document.getElementById('btn-a1').className = 'proto-btn' + (p === 'aodv' ? ' a' : '');
+      document.getElementById('btn-o1').className = 'proto-btn' + (p === 'olsr' ? ' o' : '');
+      pkt = [];
+    },
+    updateParams() {
+      speedVal = +document.getElementById('d1spd').value;
+      rssiLevel = +document.getElementById('d1rssi').value;
+      document.getElementById('d1spd-v').textContent = speedVal + ' m/s';
+      document.getElementById('d1rssi-v').textContent = ['', 'Zayıf', 'Orta', 'Güçlü'][rssiLevel];
+      pkt = [];
+    },
+    reset() { cancelAnimationFrame(frame); initNodes(); pkt = []; frame = requestAnimationFrame(loop); }
+  };
+})();
+
+// ═══════════════════════════════════════════════
+// DEMO 2 — Araç + Adaptif Protokol
+// ═══════════════════════════════════════════════
+const d2 = (() => {
+  const cv = document.getElementById('c2');
+  const cx = cv.getContext('2d');
+  let W, H;
+  let paused = false, frame2;
+  let carX, carY, carAngle, carTX, carTY;
+  let proto = 'olsr', switchCnt = 0, switchCooldown = 0;
+  let logLines = ['— Araç yola çıktı, OLSR aktif'];
+  let speedVal = 3, sigLevel = 3;
+  let pdr = 92, delay = 6, rssi = -58;
+  let _last2 = 0;
+
+  const TOWERS = [
+    { x: .15, y: .25, s: 3 }, { x: .5, y: .15, s: 2 },
+    { x: .85, y: .3, s: 3 },  { x: .2, y: .75, s: 2 },
+    { x: .75, y: .7, s: 3 },  { x: .5, y: .85, s: 1 }
+  ];
+  const WPS = [
+    {x:.1,y:.5},{x:.3,y:.2},{x:.6,y:.12},{x:.9,y:.4},
+    {x:.85,y:.75},{x:.6,y:.9},{x:.3,y:.88},{x:.12,y:.65}
+  ];
+  let wpIdx = 0;
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    W = r.width; H = 300; cv.width = W; cv.height = H;
+  }
+  function init() { carX = WPS[0].x * W; carY = WPS[0].y * H; wpIdx = 1; nextWP(); }
+  function nextWP() { carTX = WPS[wpIdx % WPS.length].x * W; carTY = WPS[wpIdx % WPS.length].y * H; wpIdx++; }
+
+  function getRSSI() {
+    let best = -120;
+    TOWERS.forEach(t => {
+      const d = Math.hypot(carX - t.x * W, carY - t.y * H) + 1;
+      const s = -30 - Math.log10(d / 30) * 80 + t.s * 8 + sigLevel * 5;
+      if (s > best) best = s;
+    });
+    return Math.max(-100, Math.min(-40, best));
+  }
+
+  function getMetrics() {
+    const si = speedVal <= 1 ? 0 : speedVal <= 5 ? 1 : 2;
+    const ri = sigLevel === 3 ? 0 : sigLevel === 2 ? 1 : 2;
+    return {
+      pdr:   REAL_DATA[proto].pdr[si][ri]   + (Math.random() - .5) * 3,
+      delay: REAL_DATA[proto].delay[si][ri] + (Math.random() - .5) * 4,
+    };
+  }
+
+  function addLog(msg) {
+    const s = Math.floor(Date.now() / 1000 % 60).toString().padStart(2, '0');
+    logLines.unshift(`[${s}s] ${msg}`);
+    if (logLines.length > 5) logLines.pop();
+    document.getElementById('sw-log').innerHTML = logLines.map((l, i) => i === 0 ? `<span>${l}</span>` : l).join('<br>');
+  }
+
+  function setProtoUI(p, reason) {
+    proto = p;
+    const n = document.getElementById('pname2'), r = document.getElementById('preason2');
+    const pd = document.getElementById('pd2');
+    n.className = 'proto-name ' + (p === 'aodv' ? 'a' : 'o');
+    n.textContent = p.toUpperCase();
+    r.textContent = reason;
+    pd.className = 'proto-display ' + (p === 'aodv' ? 'a' : 'o');
+  }
+
+  function drawScene() {
+    cx.clearRect(0, 0, W, H);
+    // Roads
+    cx.strokeStyle = 'rgba(255,255,255,0.08)'; cx.lineWidth = 14; cx.lineCap = 'round';
+    for (let i = 0; i < WPS.length; i++) {
+      const a = WPS[i], b = WPS[(i + 1) % WPS.length];
+      cx.beginPath(); cx.moveTo(a.x * W, a.y * H); cx.lineTo(b.x * W, b.y * H); cx.stroke();
+    }
+    // Towers
+    TOWERS.forEach(t => {
+      const tx = t.x * W, ty = t.y * H;
+      const r = sigLevel * 44 + (t.s - 1) * 18;
+      cx.beginPath(); cx.arc(tx, ty, r, 0, Math.PI * 2);
+      cx.fillStyle = 'rgba(41,128,185,0.07)'; cx.fill();
+      cx.strokeStyle = 'rgba(41,128,185,0.2)'; cx.lineWidth = 1; cx.stroke();
+      cx.fillStyle = '#3498DB'; cx.beginPath(); cx.arc(tx, ty, 5, 0, Math.PI * 2); cx.fill();
+    });
+    // Signal beams
+    const curRSSI = getRSSI();
+    TOWERS.forEach(t => {
+      const tx = t.x * W, ty = t.y * H;
+      if (Math.hypot(carX - tx, carY - ty) < sigLevel * 60 + (t.s - 1) * 20) {
+        cx.setLineDash([4, 6]);
+        const a = Math.max(0, (curRSSI + 100) / 60 * 0.5);
+        cx.strokeStyle = `rgba(52,152,219,${a})`; cx.lineWidth = 1.5;
+        cx.beginPath(); cx.moveTo(carX, carY); cx.lineTo(tx, ty); cx.stroke();
+        cx.setLineDash([]);
+      }
+    });
+    // Car
+    cx.save(); cx.translate(carX, carY); cx.rotate(carAngle);
+    cx.fillStyle = '#2C3E50'; cx.beginPath(); cx.roundRect(-14, -8, 28, 16, 4); cx.fill();
+    cx.fillStyle = '#AED6F1'; cx.fillRect(-10, -5, 11, 6);
+    cx.fillStyle = '#F39C12'; cx.beginPath(); cx.arc(14, 0, 3.5, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#E74C3C'; cx.beginPath(); cx.arc(-14, 0, 3.5, 0, Math.PI * 2); cx.fill();
+    cx.restore();
+    // PDR bar
+    const barW = 140, barH = 12, bx = W - barW - 12, by = H - 24;
+    cx.fillStyle = 'rgba(0,0,0,0.4)'; cx.beginPath(); cx.roundRect(bx, by, barW, barH, 4); cx.fill();
+    const col = pdr >= 80 ? '#27AE60' : pdr >= 70 ? '#E67E22' : '#E74C3C';
+    cx.fillStyle = col; cx.beginPath(); cx.roundRect(bx, by, barW * pdr / 100, barH, 4); cx.fill();
+    cx.fillStyle = '#fff'; cx.font = 'bold 9px Space Mono, monospace'; cx.textAlign = 'center';
+    cx.fillText(`PDR ${pdr.toFixed(0)}%`, bx + barW / 2, by + barH / 2 + 3);
+    if (pdr < 70) {
+      cx.fillStyle = '#E74C3C'; cx.font = 'bold 12px DM Sans, sans-serif'; cx.textAlign = 'center';
+      cx.fillText('⚠ BREAKING POINT', W / 2, 22);
+    }
+  }
+
+  function loop2(ts) {
+    if (paused) { frame2 = requestAnimationFrame(loop2); return; }
+    const dt = Math.min(ts - _last2, 50); _last2 = ts;
+    const sp = speedVal * 18;
+    const dx = carTX - carX, dy = carTY - carY, d = Math.hypot(dx, dy);
+    if (d < 8) nextWP();
+    else {
+      carAngle = Math.atan2(dy, dx);
+      carX += dx / d * sp * dt / 1000; carY += dy / d * sp * dt / 1000;
+      carX = Math.max(18, Math.min(W - 18, carX)); carY = Math.max(18, Math.min(H - 18, carY));
+    }
+    rssi += (getRSSI() - rssi) * 0.1;
+    const m = getMetrics();
+    pdr   += (m.pdr   - pdr)   * 0.08;
+    delay += (m.delay - delay) * 0.08;
+
+    switchCooldown = Math.max(0, switchCooldown - dt);
+    if (switchCooldown === 0) {
+      if (proto === 'olsr' && (pdr < 70 || speedVal >= 8)) {
+        switchCooldown = 2500; switchCnt++;
+        setProtoUI('aodv', `PDR düştü (${pdr.toFixed(0)}%) · hız yüksek → AODV daha dayanıklı`);
+        addLog(`→ AODV: PDR=${pdr.toFixed(0)}%, hız=${speedVal}m/s`);
+        document.getElementById('switch-cnt').textContent = switchCnt;
+      } else if (proto === 'aodv' && pdr > 82 && speedVal < 4) {
+        switchCooldown = 2500; switchCnt++;
+        setProtoUI('olsr', `Ağ stabil (${pdr.toFixed(0)}%) · düşük hız → OLSR daha verimli`);
+        addLog(`→ OLSR: PDR=${pdr.toFixed(0)}%, hız=${speedVal}m/s`);
+        document.getElementById('switch-cnt').textContent = switchCnt;
+      }
+    }
+
+    const pEl = document.getElementById('d2-pdr');
+    pEl.textContent = pdr.toFixed(1) + '%';
+    pEl.className = 'metric-value ' + (pdr >= 80 ? 'ok' : pdr >= 70 ? 'warn' : 'bad');
+    document.getElementById('d2-dly').textContent  = delay.toFixed(0) + ' ms';
+    document.getElementById('d2-spd').textContent  = speedVal + ' m/s';
+    const rEl = document.getElementById('d2-rssi');
+    rEl.textContent = rssi.toFixed(0) + ' dBm';
+    rEl.className = 'metric-value ' + (rssi > -70 ? 'ok' : rssi > -85 ? 'warn' : 'bad');
+
+    drawScene();
+    frame2 = requestAnimationFrame(loop2);
+  }
+
+  return {
+    init() { resize(); init(); frame2 = requestAnimationFrame(loop2); window.addEventListener('resize', resize); },
+    updateParams() {
+      speedVal = +document.getElementById('vspd').value;
+      sigLevel  = +document.getElementById('vsig').value;
+      document.getElementById('vspd-v').textContent = speedVal + ' m/s';
+      document.getElementById('vsig-v').textContent = ['', 'Zayıf', 'Orta', 'Güçlü'][sigLevel];
+    },
+    togglePause() {
+      paused = !paused;
+      document.getElementById('pause-btn').textContent = paused ? '▶ Devam' : '⏸ Duraklat';
+    },
+    reset() {
+      cancelAnimationFrame(frame2); proto = 'olsr'; switchCnt = 0; logLines = ['— Sıfırlandı'];
+      setProtoUI('olsr', 'Simülasyon sıfırlandı'); document.getElementById('switch-cnt').textContent = '0';
+      document.getElementById('sw-log').innerHTML = '— Araç yola çıktı, OLSR aktif';
+      document.getElementById('pause-btn').textContent = '⏸ Duraklat'; paused = false;
+      init(); frame2 = requestAnimationFrame(loop2);
+    }
+  };
+})();
+
+function showTab(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+d1.init(); d2.init();
+</script>
+</body>
+</html>
